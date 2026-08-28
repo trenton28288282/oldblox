@@ -17,7 +17,7 @@ canvas {
     inset: 0;
     z-index: 0;
 }
-/* JOYSTICK */
+/* LEFT JOYSTICK */
 #joystick {
     position: fixed;
     left: 30px;
@@ -27,8 +27,7 @@ canvas {
     border-radius: 50%;
     background: rgba(255,255,255,0.25);
     border: 3px solid rgba(255,255,255,0.7);
-    z-index: 100;
-    touch-action: none;
+    z-index: 10;
 }
 #stick {
     position: absolute;
@@ -38,9 +37,8 @@ canvas {
     height: 50px;
     border-radius: 50%;
     background: rgba(255,255,255,0.8);
-    z-index: 101;
 }
-/* JUMP BUTTON */
+/* JUMP */
 #jump {
     position: fixed;
     right: 30px;
@@ -51,47 +49,49 @@ canvas {
     border: 3px solid rgba(255,255,255,0.7);
     background: rgba(255,255,255,0.25);
     color: white;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: bold;
-    z-index: 100;
+    z-index: 10;
+}
+/* RIGHT SIDE CAMERA AREA */
+#lookArea {
+    position: fixed;
+    left: 50%;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    z-index: 5;
     touch-action: none;
 }
 </style>
 </head>
 <body>
-<!-- JOYSTICK -->
+<div id="lookArea"></div>
 <div id="joystick">
     <div id="stick"></div>
 </div>
-<!-- JUMP -->
 <button id="jump">JUMP</button>
 <script type="module">
 import * as THREE from
 "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
-// ===========================
+// =========================
 // SCENE
-// ===========================
-const scene =
-    new THREE.Scene();
-// ===========================
+// =========================
+const scene = new THREE.Scene();
+// =========================
 // CAMERA
-// ===========================
+// =========================
 const camera =
     new THREE.PerspectiveCamera(
         70,
-        window.innerWidth /
-        window.innerHeight,
+        window.innerWidth / window.innerHeight,
         0.1,
         1000
     );
-camera.position.set(
-    0,
-    2,
-    8
-);
-// ===========================
+camera.position.set(0, 2, 8);
+// =========================
 // RENDERER
-// ===========================
+// =========================
 const renderer =
     new THREE.WebGLRenderer({
         antialias: false
@@ -103,16 +103,16 @@ renderer.setSize(
 document.body.appendChild(
     renderer.domElement
 );
-// ===========================
+// =========================
 // SKY
-// ===========================
+// =========================
 const sky =
     new THREE.TextureLoader()
     .load("Skybox.webp");
 scene.background = sky;
-// ===========================
+// =========================
 // LIGHT
-// ===========================
+// =========================
 const sunlight =
     new THREE.DirectionalLight(
         0xffffff,
@@ -130,9 +130,9 @@ scene.add(
         0.6
     )
 );
-// ===========================
+// =========================
 // BASEPLATE
-// ===========================
+// =========================
 const studs =
     new THREE.TextureLoader()
     .load("studs.png");
@@ -156,42 +156,37 @@ const baseplate =
         })
     );
 scene.add(baseplate);
-// ===========================
+// =========================
 // PLAYER
-// ===========================
+// =========================
 let velocityY = 0;
 let grounded = true;
 const playerHeight = 2;
-// ===========================
+// =========================
 // JOYSTICK
-// ===========================
+// =========================
 const joystick =
-    document.getElementById(
-        "joystick"
-    );
+    document.getElementById("joystick");
 const stick =
-    document.getElementById(
-        "stick"
-    );
+    document.getElementById("stick");
 let joyX = 0;
 let joyY = 0;
-let active = false;
+let joystickActive = false;
 const maxDistance = 35;
 joystick.addEventListener(
     "touchstart",
-    event => {
-        active = true;
-        event.preventDefault();
+    e => {
+        joystickActive = true;
+        e.preventDefault();
     },
     { passive: false }
 );
 joystick.addEventListener(
     "touchmove",
-    event => {
-        if (!active)
+    e => {
+        if (!joystickActive)
             return;
-        const touch =
-            event.touches[0];
+        const touch = e.touches[0];
         const rect =
             joystick.getBoundingClientRect();
         let x =
@@ -201,13 +196,8 @@ joystick.addEventListener(
             touch.clientY -
             (rect.top + 60);
         const distance =
-            Math.sqrt(
-                x*x + y*y
-            );
-        if (
-            distance >
-            maxDistance
-        ) {
+            Math.sqrt(x*x + y*y);
+        if (distance > maxDistance) {
             x =
                 x / distance *
                 maxDistance;
@@ -223,55 +213,119 @@ joystick.addEventListener(
             x / maxDistance;
         joyY =
             y / maxDistance;
-        event.preventDefault();
+        e.preventDefault();
     },
     { passive: false }
 );
 joystick.addEventListener(
     "touchend",
     () => {
-        active = false;
+        joystickActive = false;
         joyX = 0;
         joyY = 0;
-        stick.style.left =
-            "35px";
-        stick.style.top =
-            "35px";
+        stick.style.left = "35px";
+        stick.style.top = "35px";
     }
 );
-// ===========================
-// JUMP
-// ===========================
-document.getElementById(
-    "jump"
-).addEventListener(
+// =========================
+// CAMERA LOOK
+// =========================
+const lookArea =
+    document.getElementById("lookArea");
+let looking = false;
+let lastTouchX = 0;
+let lastTouchY = 0;
+let cameraYaw = 0;
+let cameraPitch = 0;
+lookArea.addEventListener(
     "touchstart",
-    event => {
-        if (grounded) {
-            velocityY =
-                0.18;
-            grounded =
-                false;
-        }
-        event.preventDefault();
+    e => {
+        looking = true;
+        lastTouchX =
+            e.touches[0].clientX;
+        lastTouchY =
+            e.touches[0].clientY;
+        e.preventDefault();
     },
     { passive: false }
 );
-// ===========================
+lookArea.addEventListener(
+    "touchmove",
+    e => {
+        if (!looking)
+            return;
+        const touch =
+            e.touches[0];
+        const deltaX =
+            touch.clientX -
+            lastTouchX;
+        const deltaY =
+            touch.clientY -
+            lastTouchY;
+        lastTouchX =
+            touch.clientX;
+        lastTouchY =
+            touch.clientY;
+        // Horizontal camera rotation
+        cameraYaw -=
+            deltaX * 0.005;
+        // Vertical camera rotation
+        cameraPitch -=
+            deltaY * 0.005;
+        // Stop camera flipping upside down
+        cameraPitch =
+            Math.max(
+                -1.4,
+                Math.min(
+                    1.4,
+                    cameraPitch
+                )
+            );
+        camera.rotation.order =
+            "YXZ";
+        camera.rotation.y =
+            cameraYaw;
+        camera.rotation.x =
+            cameraPitch;
+        e.preventDefault();
+    },
+    { passive: false }
+);
+lookArea.addEventListener(
+    "touchend",
+    () => {
+        looking = false;
+    }
+);
+// =========================
+// JUMP
+// =========================
+document.getElementById("jump")
+.addEventListener(
+    "touchstart",
+    e => {
+        if (grounded) {
+            velocityY = 0.18;
+            grounded = false;
+        }
+        e.preventDefault();
+    },
+    { passive: false }
+);
+// =========================
 // MOVEMENT
-// ===========================
+// =========================
 function updatePlayer() {
-    const speed =
-        0.10;
-    camera.translateZ(
-        joyY * speed
-    );
+    const speed = 0.10;
+    // Move relative to camera direction
     camera.translateX(
         joyX * speed
     );
+    camera.translateZ(
+        joyY * speed
+    );
     // Gravity
-    velocityY -=
-        0.008;
+    velocityY -= 0.008;
     camera.position.y +=
         velocityY;
     // Ground
@@ -285,9 +339,9 @@ function updatePlayer() {
         grounded = true;
     }
 }
-// ===========================
+// =========================
 // RESIZE
-// ===========================
+// =========================
 window.addEventListener(
     "resize",
     () => {
@@ -301,13 +355,11 @@ window.addEventListener(
         );
     }
 );
-// ===========================
+// =========================
 // GAME LOOP
-// ===========================
+// =========================
 function animate() {
-    requestAnimationFrame(
-        animate
-    );
+    requestAnimationFrame(animate);
     updatePlayer();
     renderer.render(
         scene,
